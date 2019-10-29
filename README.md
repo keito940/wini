@@ -27,8 +27,8 @@ The script file wini.pm is a perl module supporting WINI markup. This script can
 
 ## スタートアップ
 
-0. 何はともあれ、perl5.8.0以上が使える環境を用意する。winiを実装したwini.pmは、perl本体とperlの標準モジュールがあれば利用できる。
-0. 次に当レポジトリをダウンロードして適当なディレクトリに展開する。
+1. 何はともあれ、perl5.8.0以上が使える環境を用意する。
+0. 当レポジトリをダウンロードして適当なディレクトリに展開する。
 0. 上記ディレクトリ内で、`perl wini.pm < test.wini > out.html`を実行する。
 0. test.htmlと同一内容のout.htmlができていれば、ひとまずperlの設定に問題は無いだろう。
 0. perl.pmの詳しい使い方については`perl wini.pm -h`で表示されるヘルプを参照してほしい。
@@ -37,7 +37,7 @@ The script file wini.pm is a perl module supporting WINI markup. This script can
 
 ## Start up
 
-0. Prepare the environment where perl 5.8.0 or later can be used.
+1. Prepare the environment where perl 5.8.0 or later can be used.
 0. Download this registry, and extend (unzip) files in an appropriate directory.
 0. Try `perl wini.pm < test.wini > out.html`. If the result out.html is the same as test.html in the registry, it is ready to start wini operating. 
 0. Try `perl wini.pm -h` to find out detailed usage of wini.pm.
