@@ -25,7 +25,7 @@ Strong points of WINI include:
            
 The script file wini.pm is a perl module supporting WINI markup. This script can also be used as a stand-alone perl script. Users easily can get HTML5 documents from WINI source texts, by using wini.pm as a filter command.
 
-## スタートアップ / Start Up
+## スタートアップ
 
 0. 何はともあれ、perl5.8.0以上が使える環境を用意する。winiを実装したwini.pmは、perl本体とperlの標準モジュールがあれば利用できる。
 0. 次に当レポジトリをダウンロードして適当なディレクトリに展開する。
@@ -34,3 +34,12 @@ The script file wini.pm is a perl module supporting WINI markup. This script can
 0. perl.pmの詳しい使い方については`perl wini.pm -h`で表示されるヘルプを参照してほしい。
 0. 必要に応じてperl.pmをperlのライブラリモジュールを格納しているディレクトリにコピーする。これで自作スクリプト中で`use wini;`することによりwini変換関数が利用できるようになる。
 0. winiマークアップの文法についてはwini-j.mdまたはwini.mdを参照してほしい。(In preparation)
+
+## Start up
+
+0. Prepare the environment where perl 5.8.0 or later can be used.
+0. Download this registry, and extend (unzip) files in an appropriate directory.
+0. Try `perl wini.pm < test.wini > out.html`. If the result out.html is the same as test.html in the registry, it is ready to start wini operating. 
+0. Try `perl wini.pm -h` to find out detailed usage of wini.pm.
+0. If necessary, copy wini.pm to the directory listed in @INC to use wini.pm as a module file.  WINI translation functions in wini.pm will be available in perl scripts, by adding `use wini;`.
+0. Refer wini.md to find out the detailed grammar of WINI. (In preparation)
