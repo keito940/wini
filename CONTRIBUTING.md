@@ -1,4 +1,4 @@
-## Your contribution to WINI project is greatly appreciated! / WINIプロジェクトへのご支援をいただけると幸甚です!
+## WINIプロジェクトへのご支援をいただけると幸甚です! / Your contribution to WINI project is greatly appreciated!
 
 * Did you find a bug?
 * Do you have any questions or suggestions?
