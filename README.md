@@ -4,7 +4,7 @@
 WINIとは、WIKI markupを参考に、より簡単に、より便利に、HTML5ベースの文書作成ができるように設計された、軽量マークアップ言語である。
 WINIという名称は”WIKI ni NIta nanika"に由来する。
 
-wini.pmはWINIによるタイプセッティングを実現するためのperl moduleもしくはスクリプトである。ライブラリとして他のperlスクリプトから利用できるのはもちろん、単体でWINI→HTML5の変換用フィルタコマンドとして利用できるように作られている。
+wini.pmはWINIによるタイプセッティングを実現するためのperlスクリプトである。ライブラリとして他のperlスクリプトから利用できるのはもちろん、単体でWINI→HTML5の変換用フィルタコマンドとして利用できるように作られている。
 
 WINIは、前述の通りwiki markupを参考に開発されたが、もちろん、wiki markupにはない（あるいは上回る）いくつかの特徴を有している。
 
@@ -29,8 +29,7 @@ The script file wini.pm is a perl module supporting WINI markup. This script can
 
 1. 何はともあれ、perl5.8.0以上が使える環境を用意する。
 0. 当レポジトリをダウンロードして適当なディレクトリに展開する。
-0. 上記ディレクトリ内で、`perl wini.pm < test.wini > out.html`を実行する。
-0. test.htmlと同一内容のout.htmlができていれば、ひとまずperlの設定に問題は無いだろう。
+0. 上記ディレクトリ内で、`perl wini.pm < test.wini > out.html`を実行する。test.htmlと同一内容のout.htmlができていれば、ひとまずperlの設定に問題は無いだろう。
 0. perl.pmの詳しい使い方については`perl wini.pm -h`で表示されるヘルプを参照してほしい。
 0. 必要に応じてperl.pmをperlのライブラリモジュールを格納しているディレクトリにコピーする。これで自作スクリプト中で`use wini;`することによりwini変換関数が利用できるようになる。
 0. winiマークアップの文法についてはwini-j.mdまたはwini.mdを参照してほしい。(In preparation)
