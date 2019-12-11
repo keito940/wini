@@ -1,15 +1,17 @@
 #!/usr/bin/env perl
+package Wini;
 =head1 NAME
 
-wini.pm - WIKI markup ni NIta nanika (Japanese: "Something like wiki markup")
+wini.pm - WIki markup ni NIta nanika (Japanese: "Something like wiki markup")
 
 =head1 SYNOPSIS
 
  use wini;
+
  my $htmltext = wini(<<'EOT');
- ! Large heading
- !! Middle heading
- !!! Small heading
+ ! Large header
+ !! Middle header
+ !!! Small header
 
  * list item 1
  ** nested list item 1-1
@@ -78,19 +80,21 @@ Strong points of WINI include:
 
 =back
 
-Today many people try to build and maintain blogs, wikipedia-like sites, etc. They produce or update a huge number of such pages daily within a time limit. For SEO, outputs should follow the valid html5 grammer. Complex data should be presented in complex HTML tables. Average writers must have a hard time to fulfill such requirements. WINI must be one of the best partners for all those people!
+Today many people try to build and maintain blogs, wikipedia-like sites, etc. They produce or update a huge number of such pages daily within a time limit. For SEO, outputs should follow the valid html5 grammer. Complex data should be presented in complex HTML tables. Average writers must have a hard time to fulfill such requirements. WINI will resque all those people!
 
 =head1 Options
 
 =over 4
 
-=item * -i INPUT    set input file name to INPUT. If the file named INPUT does not exists, wini.pm try to search INPUT.wini. If -i is not set, wini.pm takes data from standard input.
+=item * -i INPUT    set input file name to INPUT. If the file named 'INPUT' does not exists, wini.pm looks for 'INPUT.wini'. If -i is not set, wini.pm takes data from standard input.
 
-=item * -o OUTPUT   set output file name. If both -o and -i are omitted, wini.pm output data to standard output.
+=item * -o OUTPUT   set output file name. If both -o and -i are omitted, wini.pm outputs HTML-translated text to standard output.
 If -o is omitted and the input file name is 'input.wini', the output file will be 'input.wini.html'.
 Users can specify the output directory rather than the file. If -o value ends with 'output/', output file will be output/input.wini.html. if 'output/' does not exist, wini.pm will create it.
 
 =item * --whole     add HTML5 headar and footer to output. The result output will be a complete HTML5 document.
+
+=item * --version   show version.
 
 =item * --help      show this help.
 
@@ -106,16 +110,23 @@ use Pod::Usage;
 use Getopt::Long;
 
 my $scriptname = basename($0);
+my $version    = "0 rel. 191202";
 my @save;
 
-if ($scriptname eq 'wini.pm' or $scriptname eq 'wini'){
+our $MATH=0;
+
+__PACKAGE__->stand_alone() if !caller() || caller() eq 'PAR';
+
+# Following function is executed when this script is called as stand-alone script
+sub stand_alone(){
   my($input, $output, $fhi, $fho, $test, $whole);
   GetOptions(
-    "h|help" => sub {help()},
-    "i=s"    => \$input,
-    "o=s"    => \$output,
-    "t"      => \$test,
-    "whole"  => \$whole
+    "h|help"    => sub {help()},
+    "v|version" => sub {print STDERR "wini.pm Version $version\n"; exit()},
+    "i=s"       => \$input,
+    "o=s"       => \$output,
+    "t"         => \$test,
+    "whole"     => \$whole
   );
   ($test) and ($input, $output)=("test.wini", "test.html");
   if ($input) {
@@ -175,15 +186,19 @@ sub wini{
   my $para              = 'p'; # p or br or none
   (defined $opt->{para}) and $para = $opt->{para};
 
-  $t0 =~ s/{{l}}/&#x7b;/g;   # {
-  $t0 =~ s/{{bar}}/&#x7c;/g; # |
-  $t0 =~ s/{{r}}/&#x7d;/g;   # }
+  $t0 =~ s/\{\{l}}/&#x7b;/g;   # {
+  $t0 =~ s/\{\{bar}}/&#x7c;/g; # |
+  $t0 =~ s/\{\{r}}/&#x7d;/g;   # }
 
   # pre, code, citation, ...
-  $t0 =~ s/{{(pre|code|q(?: [^|]+)?)\|(.*?)}}/&save($1,$2)/esmg;  
+  $t0 =~ s/\{\{(pre|code|q(?: [^|]+?)?)}}(.+?)\{\{end}}/&save($1,$2)/esmg;  
 
   # conv table to html
   $t0 =~ s/(^\s*\|.*?)[\n\r]+(?!\|)/make_table($1)/esmg;
+
+  # set math
+  $t0 =~ s/(?<!`)(`[^`]*?`(?!`))/make_math_inline($1)/esmg;
+  $t0 =~ s/```(.*?)```/make_math($1)/esmg;
 
   my $r;
   my @localclass = ('wini');
@@ -193,18 +208,28 @@ sub wini{
     my $lastlistdepth=0;
     my $ptype; # type of each paragraph (list, header, normal paragraph, etc.)
     while(1){ # loop while subst needed
-      if(my($x,$cont) = $t=~/^(!+)\s*(.*)$/m){ # !!!...
-        my $tag0 = length($x)+2; ($tag0>5) and $tag0="5";
-        $t=~s#^(!+)\s*(.*)$#<h${tag0}${myclass}>$2</h${tag0}>#m;
+      if(my($x,$id,$cont) = $t=~/^(!+)([-\w]*)\s*(.*)$/m){ # !!!...
+        ($id) and $id=qq{ id="$id"};
+        my $tag0 = length($x); ($tag0>5) and $tag0="5";
+        $t=~s#^(!+)\s*(.*)$#<h${tag0}${myclass}${id}>$cont</h${tag0}>#m;
         $ptype = 'header';
       }
       (
-        $t =~ s!{{([IBUS])\|([^{}]*?)}}!{my $x=lc $1; "<$x>$2</$x>"}!esg or
-        $t =~ s!{{i\|([^{}]*?)}}!<span style="font-style:italic;">$1</span>!g or
-        $t =~ s!{{b\|([^{}]*?)}}!<span style="font-weight:bold;">$1</span>!g or
-        $t =~ s!{{u\|([^{}]*?)}}!<span style="border-bottom: solid 1px;">$1</span>!g or
-        $t =~ s!{{s\|([^{}]*?)}}!<span style="text-decoration: line-through;">$1</span>!g or
-        $t =~ s!{{([-_/*]+[-_/* ]*)\|([^{}]*?)}}!xtags($1,$2)!eg or
+        $t =~ s!\{\{([IBUS])\|([^{}]*?)}}!{my $x=lc $1; "<$x>$2</$x>"}!esg or
+        $t =~ s!\{\{i\|([^{}]*?)}}!<span style="font-style:italic;">$1</span>!g or
+        $t =~ s!\{\{b\|([^{}]*?)}}!<span style="font-weight:bold;">$1</span>!g or
+        $t =~ s!\{\{u\|([^{}]*?)}}!<span style="border-bottom: solid 1px;">$1</span>!g or
+        $t =~ s!\{\{s\|([^{}]*?)}}!<span style="text-decoration: line-through;">$1</span>!g or
+        $t =~ s!\{\{ruby\|([^{}]*?)}}!ruby($1)!eg or
+        $t =~ s!\{\{([-_/*]+[-_/* ]*)\|([^{}]*?)}}!symmacro($1,$2)!eg or
+        $t =~ s!\{\{([.#][^{}|]+)\|([^{}]*?)}}!
+          my($a,$b,  @c)=($1,$2);
+          push(my(@class), $a=~/\.([^.#]+)/g);
+          push(my(@id),    $a=~/#([^.#]+)/g);
+          (defined $class[0]) and push(@c, q{class="}.join(" ", @class).q{"});
+          (defined $id[0])    and push(@c, q{id="}   .join(" ", @id)   .q{"});
+          $_ = "<span " . join(" ", @c) . ">$b</span>"; 
+        !eg or
         $t =~ s!\[(.*?)\]!make_a($1, $baseurl)!eg
       ) or last; # no subst need, then escape inner loop
     } # loop while subst needed
@@ -254,34 +279,53 @@ sub wini{
                                                    : "<p${myclass}>\n$t2</p>$cr$cr";
   } # foreach $t
 
-  $r=~s/\x00i=(\d+)\x01/$save[$1]/ge;
-  (defined $opt->{whole}) and
+  $r=~s/\x00i=(\d+)\x01/$save[$1]/ge; # valuable substitution
+
+  (defined $MATH) and $r =<<"EOD" . $r;
+  <script type="text/x-mathjax-config">
+   MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [['`','`'], ['\\(','\\)']],
+      processEscapes: true
+    },
+    CommonHTML: { matchFontHeight: false }
+   });
+   </script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.6/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+EOD
+
+  if(defined $opt->{whole}){
+    my ($red, $green, $blue, $magenta, $purple, $yellow) = map {qq!rgb($_)!} ('213,94,0', '0,158,115', '0,114,178', '218,0,250', '204,121,167', '240,228,66');
     $r = <<"EOD";
 <!DOCTYPE html>
 <html lang="ja">
  <head>
  <meta charset="UTF-8">
  <style>
-  table.winitable td, table.winitable th  {border: 1px black solid}
-  table.winitable                         {border-collapse: collapse; border: 2px black solid;}
+  table.winitable                         {border-collapse: collapse; border: black solid;}
   ol, ul, dl                              {padding-left: 1em}
-  .b-r                                    {background-color: red;}
-  .b-g                                    {background-color: green;}
-  .b-b                                    {background-color: black;}
+
+  /* barrier free color codes: https://jfly.uni-koeln.de/html/manuals/pdf/color_blind.pdf */
+  .b-r                                    {background-color: rgb(213,94,0);}  /* red */
+  .b-g                                    {background-color: rgb(0,158,115);} /* green */
+  .b-b                                    {background-color: rgb(0,114,178);} /* blue */
   .b-w                                    {background-color: white;}
+  .b-b25                                  {background-color: #CCC;}
   .b-b50                                  {background-color: #888;}
-  .b-m                                    {background-color: magenta;}
-  .b-p                                    {background-color: purple;}
-  .f-r                                    {color: red;}
-  .f-g                                    {color: green;}
-  .f-b                                    {color: black;}
-  .f-w                                    {color: white;}
-  .f-b50                                  {color: #888;}
-  .f-m                                    {color: magenta;}
-  .f-p                                    {color: purple;}
-  .a-l                                    {text-align: left;}
-  .a-r                                    {text-align: right;}
-  .a-c                                    {text-align: center;}
+  .b-b75                                  {background-color: #444;}
+  .b-b100                                 {background-color: #000;}
+  .b-m                                    {background-color: rgb(218,0,250);}
+  .b-p                                    {background-color: rgb(204,121,167);}
+  .f-r                                    {color: rgb(213,94,0);    border-color: black;} /* red */
+  .f-g                                    {color: rgb(0,158,115);   border-color: black;} /* green */
+  .f-b                                    {color: rgb(0,114,178);   border-color: black;} /* blue */
+  .f-w                                    {color: white;            border-color: black;}
+  .f-b25                                  {color: #CCC;             border-color: black;}
+  .f-b50                                  {color: #888;             border-color: black;}
+  .f-b75                                  {color: #444;             border-color: black;}
+  .f-b100                                 {color: #000;             border-color: black;}
+  .f-m                                    {color: rgb(218,0,250);   border-color: black;} /* magenta */
+  .f-p                                    {color: rgb(204,121,167); border-color: black;} /* purple */
  </style>
  <title>WINI test page</title>
  </head>
@@ -290,17 +334,18 @@ $r
  </body>
 </html>
 EOD
+  }
   return($r);
 }
 
-sub xtags{
+sub symmacro{
   # {{/*_-|text}}
   my($tag0, $text)=@_;
   my @styles;
   my $r;
   my $strong=0;
   while($tag0=~/(\*+)/g){
-    (length($1)>1) ? $strong++ : push(@styles, 'font-weight:bold;');
+    (length($1)>1) ? ($strong=length($1)-1) : push(@styles, 'font-weight:bold;');
   }
   ($tag0=~/_/)  and push(@styles, 'border-bottom: solid 1px;');
   ($tag0=~/-/)  and push(@styles, 'text-decoration: line-through;');
@@ -321,9 +366,7 @@ sub readpars{
     }
   }
   foreach my $k (@list){
-    if(exists $pars{$k}){
-      
-    }else{
+    if(not exists $pars{$k}){
       my $x = shift(@pars);
       $pars{$k}=$x;
     }
@@ -354,7 +397,7 @@ sub save{ # pre, code, cite ...
     my %opts;
     foreach my $o (@opts){
       my($k,$v) = $o=~/(.*?)=(.*)/;
-      $opts{$k} = $v;
+      ($k) and $opts{$k} = $v;
     }
     ($opts{cite}) or $opts{cite} = 'http://example.com';
     return(<<"EOD");
@@ -370,7 +413,6 @@ EOD
 }
 }
 
-
 # [[label|type|ja_name|en_name|ja_desc|en_desc|maxlen|minlen|maxval|minval|regexp|ncol|nrow]]
 sub readblank{
   my($indata)=@_; # '[[a|b|c]]'
@@ -380,36 +422,93 @@ sub readblank{
 }
 
 # [xxxx] -> <a href="www">...</a>
+{
+my $img_no=0;
 sub make_a{
   my($t, $baseurl)=@_;
-  my($a, $b)               = $t=~/\s*([!#]*".*?")\s+(.*)/;
-  (defined $a) or ($a, $b) = $t=~/(\S*)(?:\s+(.*))?/;
-  $a=~s/"//g;
-  $b = escape($b);
-  my $href;
-  if($a =~ m!https?://!){
-    $href = $a;
-  }elsif($a =~ /^[\d_]+$/){
-    $href = "$baseurl?aid=$a";
-  }elsif(my($img) = $a=~/^!(.*)/){
-    return(qq!<img src="$img" alt="$b">!);
+  my($prefix, $url, $text)         = $t=~/^\s*([!#])?"(.*)"(?:\s+(.*))?/;
+  ($url) or ($prefix, $url, $text) = $t=~/^\s*([!])?(\S*)(?:\s+(.*))?/;
+  $text = escape($text) || $url;
+  if($prefix eq '!'){
+    $img_no++;
+    return(qq!<img src="$url" id="image${img_no}" alt="$text">!);
+  }elsif($url=~/^[\d_]+$/){
+    return(qq!<a href="$baseurl?aid=$url">$text</a>!);
   }else{
-    $href = $a;
+    return(qq!<a href="$url">$text</a>!);
   }
-  ($b eq '') and $b=$a;
-  return(qq!<a href="$href">$b</a>!);
+}
 }
 
+sub ruby{
+  my($x) = @_; # text1|ruby1|text2|ruby2 ...
+  my @txt = split(/\|/, $x);
+  return('<ruby>' . join("", map {my $a=$_*2; "$txt[$a]<rp>(</rp><rt>$txt[$a+1]</rt><rp>)</rp>"} (0..$#txt/2)) . '</ruby>');
+}
+
+sub make_math_inline{
+  my($x) = @_; # `a=b+c`
+  (defined $MATH) or $MATH=0;
+  return(qq{<span class="inlinemath">$x</span>});
+}
+
+sub make_math{
+  my($x) = @_; # a=b+c
+  (defined $MATH) or $MATH=0;
+  $MATH++;
+  $x=~/\\tag{\d+}\s*$/ or $x .= "\\tag{$MATH}";
+  return(qq{<span class="math" id="math$MATH">\\( $x \\)</span>});
+}
+
+{
+my $table_no;
 sub make_table{
   my($in)=@_;
+  (defined $table_no) or $table_no=1;
   my $ln=0;
   my @winiitem;
   my @htmlitem;
-  foreach my $line (split(/\n/, $in)){
+  my $caption;
+
+  push(@{$htmlitem[0][0]{copt}{class}}, 'winitable');
+  #get caption & table setting - remove '^|-' lines from $in
+  $in =~ s&(^\|-(.*$))\n&
+    $caption=$2; my($c, $o) = split(/ \|(?= |$)/, $caption, 2); # $caption=~s{[| ]*$}{};
+    while($o =~ /([^=\s]+)="([^"]*)"/g){
+      my($k,$v) = ($1,$2);
+      ($k eq 'class')  and push(@{$htmlitem[0][0]{copt}{class}}, $v), next;
+      ($k eq 'border') and $htmlitem[0][0]{copt}{border}=$v         , next;
+      push(@{$htmlitem[0][0]{copt}{style}{$k}}, $v);
+    }
+    while($o=~/\.([-\w]+)/g){
+      push(@{$htmlitem[0][0]{copt}{class}}, $1);
+    }
+    while($o=~/#([-\w]+)/g){
+      push(@{$htmlitem[0][0]{copt}{id}}, $1);
+    }
+    while($o=~/\&([lrcjsebtm]+)/g){
+      my $h = {qw/l left r right c center j justify s start e end/}->{$1};
+      (defined $h) and push(@{$htmlitem[0][0]{copt}{style}{'text-align'}}, $h);
+      my $v = {qw/t top m middle b bottom/}->{$1};
+      (defined $v) and push(@{$htmlitem[0][0]{copt}{style}{'vertical-align'}}, $v);
+    }
+    if($o=~/(?<!\w)([][_~@=])+(\d+)?/){
+      my($a,$b) = ($1, $2);
+      ($a=~/\@/)    and $htmlitem[0][0]{copt}{style}{border}[0] = $b;      
+      ($a=~/[[@]/)  and $htmlitem[0][0]{copt}{style}{border}[3] = $b;      
+      ($a=~/[]@]/)  and $htmlitem[0][0]{copt}{style}{border}[2] = $b;      
+      ($a=~/[_@=]/) and $htmlitem[0][0]{copt}{style}{border}[4] = $b;      
+      ($a=~/[~@=]/) and $htmlitem[0][0]{copt}{style}{border}[1] = $b;      
+    }
+    $caption=wini($c, {para=>'nb', nocr=>1});
+  ''&emg;
+
+  my @lines = split(/\n/, $in);
+  foreach my $line (@lines){
     $line=~s/[\n\r]*//g;
     ($line eq '') and next;
     $ln++;
-    my @cols = split(/( *\|\S*)/, $line); # $cols[0] is always undef. so delete.
+    my @cols = split(/((?:^| +)\|\S*)/, $line); # $cols[0] is always undef. so delete.
     # standardize
     $cols[-1]=~/^\s+$/  and delete $cols[-1];
     $cols[-1]!~/^\s*\|/ and push(@cols, '|');
@@ -418,9 +517,11 @@ sub make_table{
       $cols[$cn]=~s/\s*$//;
       $winiitem[$ln][$cn] = $cols[$cn];
     }
-  }
+  } # foreach @lines
   
+  my @rowlen;
   for($ln=$#winiitem; $ln>=1; $ln--){
+    $rowlen[$ln]=0;
     if($winiitem[$ln][1]=~/\^\^/ and $ln>1){ # row merge
       for(my $i=2; $i<=$#{$winiitem[$ln]}; $i+=2){
         $winiitem[$ln-1][$i] .= "\n".$winiitem[$ln][$i]; # copy to upper winiitem
@@ -430,10 +531,11 @@ sub make_table{
     }
     my $colspan=0;
     my $val='';
+
     for(my $cn=$#{$winiitem[$ln]}; $cn>=0; $cn--){
       my $col   = $winiitem[$ln][$cn];
       my $col_n = $cn/2+1;
-      if($cn%2==1){ # border
+      if($cn%2==1){ # separator
         $col = substr($col,1); # remove the first '|'
         #$ctag = ($col=~/\bh\b/)?'th':'td';
         $htmlitem[$ln][$col_n]{ctag} = 'td';
@@ -442,7 +544,7 @@ sub make_table{
         $col=~s/\.\.([^.]+)/    unshift(@{$htmlitem[$ln][     0]{copt}{class}}, $1), ''/eg;
         $col=~s/\.([^.]+)/      unshift(@{$htmlitem[$ln][$col_n]{copt}{class}}, $1), ''/eg;
         while($col=~/(?<!!)(!+)(?!!)/g){
-          my $h=$1;
+          my($h) = $1;
           if(length($h) == 1){ # cell
             $htmlitem[$ln][$col_n]{ctag} = 'th';
           }elsif(length($h) == 2){ # row
@@ -450,7 +552,7 @@ sub make_table{
           }elsif(length($h) == 3){ #col
             $htmlitem[0][$col_n]{ctag} = 'th';            
           }
-        }
+        } # header
 
         if($col=~/-/){ # colspan
           $colspan++;
@@ -464,14 +566,14 @@ sub make_table{
           next;
         }elsif($colspan>0){
           $colspan=0;
-        }
+        } # colspan
 
         if($col=~/\^/){ # rowspan
           $winiitem[$ln-1][$cn+1] .= "\n" . $winiitem[$ln][$cn+1]; # merge data block to upper row 
           (defined $htmlitem[$ln][$col_n]{copt}{rowspan}) or $htmlitem[$ln][$col_n]{copt}{rowspan} = 1;
           $htmlitem[$ln-1][$col_n]{copt}{rowspan} = $htmlitem[$ln][$col_n]{copt}{rowspan}+1;
           next;
-        }
+        } # rowspan
 
         while($col=~/(([][_~=@|])(?:\2*))(\d*)/g){ # border setting
           my($m, $btype, $n) = (length($1), $2, sprintf("solid %dpx",($3 ne '')?$3:1));
@@ -485,10 +587,25 @@ sub make_table{
                        :($m==3)?(  0, $col_n)  # for all cells in the target col
                        :($m==2)?($ln, 0)       # for all cells in the target row
                        :        ($ln, $col_n); # for target cell
-            push(@{$htmlitem[$r][$c]{copt}{style}}, sprintf("border-$k: %s;", $btype{$k}));
+            push(@{$htmlitem[$r][$c]{copt}{style}{"border-$k"}}, $btype{$k});
           }
         } # while border
 
+        while($col=~/(&{1,2})([lrcjsetmb])/g){ # text-align
+          my($a,$b)=($1,$2);
+          my $h = {qw/l left r right c center j justify s start e end/}->{$b};
+          (defined $h) and push(@{$htmlitem[$ln][($a eq '&&')?0:$col_n]{copt}{style}{'text-align'}}, $h);
+          my $v = {qw/t top m middle b bottom/}->{$b};
+          (defined $v) and push(@{$htmlitem[$ln][($a eq '&&')?0:$col_n]{copt}{style}{'vertical-align'}}, $v);
+        } # text align
+        while($col=~/(\${1,2})(\d+)/g){ # height/width
+          my($a,$b)=($1,$2);
+          if($a eq '$$'){ # height -> tr and table
+            push(@{$htmlitem[$ln][0]{copt}{style}{height}}, "${b}px");
+          }else{ # width -> td and table
+            push(@{$htmlitem[$ln][$col_n]{copt}{style}{width}}, "${b}px");
+          }
+        }
         $htmlitem[$ln][$col_n]{val}  = $val;
       }else{ # value
         $val = $col;
@@ -502,36 +619,73 @@ sub make_table{
       $cell->{wini} =~ s/\t *//g;
       $cell->{wini} =~ s/[ \n]+/ /g;
       $htmlitem[$ln][$i] = $cell; # $htmlitem[$ln][0]: data for row (tr)
+      $rowlen[$ln] += (defined $htmlitem[$ln][$i]{wini})?(length($htmlitem[$ln][$i]{wini})):0;
     }
   } # for $ln
+
   for(my $i=1; $i<=$#{$htmlitem[1]}; $i++){ # set colclass to cells
     map {
       (defined $htmlitem[0][$i]{copt}{class}) and push(@{$htmlitem[$_][$i]{copt}{class}}, @{$htmlitem[0][$i]{copt}{class}}) 
     }1..$#htmlitem;
   }
 
-  my $outtxt = qq!<table class="winitable"!;
-  (defined $htmlitem[0][0]{copt}{style}[0]) and $outtxt .= q{ style="} . join(' ', @{$htmlitem[0][0]{copt}{style}}) .'"' ;
-  $outtxt .= ">\n";
+  (defined $htmlitem[0][0]{copt}{style}{height}[0]) 
+        or $htmlitem[0][0]{copt}{style}{height}[0] = sprintf("%drem", (scalar @lines)*2);
+  (defined $htmlitem[0][0]{copt}{style}{width}[0]) 
+        or $htmlitem[0][0]{copt}{style}{width}[0] = sprintf("%drem", ((sort @rowlen)[-1])*2);
+
+  # make html
+  unshift(@{$htmlitem[0][0]{copt}{id}}, "winitable${table_no}");
+  my $outtxt = sprintf(qq!<table id="%s", class="%s"!, join(' ', @{$htmlitem[0][0]{copt}{id}}), join(' ', @{$htmlitem[0][0]{copt}{class}}));
+  if(defined $htmlitem[0][0]{copt}{border}){
+    $outtxt .= ' border="1"';
+  }
+  $outtxt .= q{ style="border-collapse: collapse; };
+  (defined $htmlitem[0][0]{copt}{border}) and $outtxt .= sprintf("border: solid %dpx; ", $htmlitem[0][0]{copt}{border});
+  foreach my $k (grep {/border/} keys %{$htmlitem[0][0]{copt}{style}}){
+    
+  }
+  (defined $htmlitem[0][0]{copt}{style}{border}[1]) and $outtxt .= "border-top: $htmlitem[0][0]{copt}{style}{border}[1]px; ";
+  (defined $htmlitem[0][0]{copt}{style}{border}[2]) and $outtxt .= "border-right: $htmlitem[0][0]{copt}{style}{border}[2]px; ";
+  (defined $htmlitem[0][0]{copt}{style}{border}[3]) and $outtxt .= "border-left: $htmlitem[0][0]{copt}{style}{border}[3]px; ";
+  (defined $htmlitem[0][0]{copt}{style}{border}[4]) and $outtxt .= "border-bottom: $htmlitem[0][0]{copt}{style}{border}[4]px; ";
+  foreach my $k (grep {$_ ne 'border'} keys %{$htmlitem[0][0]{copt}{style}}){
+    $outtxt .= sprintf("$k: %s; ", join(' ', @{$htmlitem[0][0]{copt}{style}{$k}}));
+  }
+
+  $outtxt .= qq{">\n};
+  (defined $caption) and $outtxt .= "<caption>$caption</caption>\n";
   for(my $rn=1; $rn<=$#htmlitem; $rn++){
     ($htmlitem[$rn][0] eq '^^') and next;
 
-    $outtxt .= '<tr' .
-      join('', map{ qq! $_="! . join(' ', @{$htmlitem[$rn][0]{copt}{$_}}) . '"' } (keys %{$htmlitem[$rn][0]{copt}}));
-    #foreach my $k (keys %{$htmlitem[$rn][0]{copt}}){
-    #  $htmlitemtxt .= qq{ $k="} . join(' ', @{$htmlitem[$rn][0]{copt}{$k}}) . qq{"};
-    #}
-    $outtxt .= '>';
+    my $ropt = '';
+    if(defined $htmlitem[$rn][0]{copt}{style}){
+      $ropt .= ' style="' . 
+       join(' ', map{ sprintf("$_:%s;", join(' ', @{$htmlitem[$rn][0]{copt}{style}{$_}})) } (keys %{$htmlitem[$rn][0]{copt}{style}})) . '"';
+    }
+    if(defined $htmlitem[$rn][0]{copt}{class}[0]){
+      $ropt .= q{ class="} . join(' ',  @{$htmlitem[$rn][0]{copt}{class}}) . q{"};
+    }
+    $outtxt .= qq!<tr$ropt>!;
     $outtxt .= join("", 
       map { # for each cell ($_: col No.)
         if((defined $htmlitem[$rn][$_]{copt}{rowspan} and $htmlitem[$rn][$_]{copt}{rowspan}<=1) or (defined $htmlitem[$rn][$_]{copt}{colspan} and $htmlitem[$rn][$_]{copt}{colspan}<=1)){
           '';
         }else{
           my $copt = '';
-          foreach my $c (qw/class colspan rowspan style/){
+          foreach my $c (qw/class colspan rowspan/){
             (defined $htmlitem[$rn][$_]{copt}{$c}) and
               $copt .= sprintf(qq{ $c="%s"},
-                         (ref $htmlitem[$rn][$_]{copt}{$c} eq 'ARRAY') ? join(' ', @{$htmlitem[$rn][$_]{copt}{$c}}) : $htmlitem[$rn][$_]{copt}{$c});
+                         (ref $htmlitem[$rn][$_]{copt}{$c} eq 'ARRAY') 
+                           ? join(' ', @{$htmlitem[$rn][$_]{copt}{$c}}) 
+                           : $htmlitem[$rn][$_]{copt}{$c});
+          }
+          if(defined $htmlitem[$rn][$_]{copt}{style}){
+            $copt .= q! style="!;
+            foreach my $c (keys %{$htmlitem[$rn][$_]{copt}{style}}){
+              $copt .= sprintf("$c:%s;", join(' ', @{$htmlitem[$rn][$_]{copt}{style}{$c}}));
+            }
+            $copt .= q!"!;
           }
           my $ctag = (
             ($htmlitem[$rn][$_]{ctag} eq 'th') or 
@@ -547,6 +701,9 @@ sub make_table{
   $outtxt .= "</table>\n";
   $outtxt=~s/\t+/ /g; # tab is separator of cells vertically unified
   return("\n$outtxt\n");
+
 }
+
+} # table env
 
 1;
